@@ -74,7 +74,7 @@ lists the latest ones. If it blocked something it shouldn't have, [open an issue
 
 - It matches sentences, not intent. An agent that writes "I believe this works" walks past it. Think of it as a seatbelt, not an auditor.
 - A command after the edit proves that something ran, not that it tested the right thing.
-- It understands English and Chinese claims.
+- It only understands claims in English and Chinese.
 - It enforces in Claude Code only. Elsewhere it's a skill the agent can choose to follow.
 
 ## Why I built it
