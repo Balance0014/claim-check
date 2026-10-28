@@ -33,4 +33,4 @@ Stopping the bleeding is useful. Call it that, not "fixed".
 
 ## If a hook blocked you
 
-The claim-check hook found a claim without proof. Run the check and show the result, or rewrite the sentence as "not verified yet". It lets the second attempt through either way, so don't argue with it. Just do one of the two.
+The claim-check hook found a claim without proof. Run the check and show the result, or rewrite the sentence as "not verified yet". Do one of the two before you stop again.

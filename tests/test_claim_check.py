@@ -54,6 +54,18 @@ class Done(unittest.TestCase):
                          say('Tests pass now.')))
         self.assertEqual(v[0], 'done')
 
+    def test_bookkeeping_is_not_proof(self):
+        v = C.judge(turn(tool('Edit', file_path='app.py'), tool('TodoWrite', todos=[]), say('Fixed.')))
+        self.assertEqual(v[0], 'done')
+
+    def test_a_date_is_not_a_commit(self):
+        self.assertIsNotNone(C.judge(turn(say('Everything is deployed, build 20261028.'))))
+        self.assertIsNone(C.judge(turn(say('Everything is deployed, commit 3f9a2c1.'))))
+
+    def test_a_browser_check_counts_as_proof(self):
+        self.assertIsNone(C.judge(turn(tool('Edit', file_path='app.py'),
+                                       tool('mcp__browser__screenshot'), say('The page is fixed.'))))
+
     def test_rereading_the_file_is_not_proof(self):
         v = C.judge(turn(tool('Edit', file_path='app.py'), tool('Read', file_path='app.py'), say('Deployed and working.')))
         self.assertIsNotNone(v)
@@ -70,6 +82,10 @@ class Done(unittest.TestCase):
     def test_saying_not_verified_always_passes(self):
         self.assertIsNone(C.judge(turn(tool('Edit', file_path='app.py'),
                                        say('I fixed the handler but have not verified it yet.'))))
+
+    def test_unrelated_negatives_are_not_a_hedge(self):
+        v = C.judge(turn(tool('Edit', file_path='app.py'), say("Fixed. I didn't run into any other issues.")))
+        self.assertEqual(v[0], 'done')
 
     def test_quoted_or_code_claims_do_not_count(self):
         self.assertIsNone(C.judge(turn(tool('Edit', file_path='app.py'),
@@ -92,6 +108,11 @@ class Done(unittest.TestCase):
 class Absent(unittest.TestCase):
     def test_not_found_without_looking_is_blocked(self):
         v = C.judge(turn(say("That function doesn't exist anywhere in the repo.")))
+        self.assertEqual(v[0], 'absent')
+
+    def test_editing_files_is_not_looking(self):
+        v = C.judge(turn(tool('Edit', file_path='a.py'), tool('Edit', file_path='b.py'),
+                         say("That helper doesn't exist anymore.")))
         self.assertEqual(v[0], 'absent')
 
     def test_not_found_after_two_lookups_passes(self):

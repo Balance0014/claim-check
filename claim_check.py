@@ -34,11 +34,24 @@ LOG = os.environ.get('CLAIM_CHECK_LOG') or os.path.expanduser('~/.claude/claim-c
 
 EDIT_TOOLS = {'Edit', 'MultiEdit', 'Write', 'NotebookEdit'}
 READ_TOOLS = {'Read', 'Grep', 'Glob', 'LS'}
+# What can prove a claim: running something. Shell commands, MCP tools (browsers, APIs), fetching a URL, a subagent.
+# Bookkeeping such as TodoWrite proves nothing.
+RUN_TOOLS = {'Bash', 'BashOutput', 'PowerShell', 'WebFetch', 'Agent', 'Task'}
+# What counts as looking something up: reading, searching, or running a command.
+LOOKUP_TOOLS = READ_TOOLS | RUN_TOOLS | {'WebSearch', 'NotebookRead'}
+
+
+def runs(name):
+    return name in RUN_TOOLS or name.startswith('mcp__')
+
+
+def looks(name):
+    return name in LOOKUP_TOOLS or name.startswith('mcp__')
 # Updating notes or docs after a check doesn't undo the check.
 DOC_FILE = re.compile(r'\.(?:md|markdown|txt|rst|adoc)$', re.I)
 # A status report with no tool calls passes if it cites its proof.
 PROOF = re.compile(
-    r'\b[0-9a-f]{7,40}\b'                                            # commit
+    r'\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b'         # commit (letters and digits, so not a date)
     r'|\b\d+\s+(?:tests?\s+)?(?:passed|passing)\b|\b\d+\s+tests?\b.{0,20}\b(?:pass|ok|green)'
     r'|\bHTTP\s*/?[\d.]*\s*\d{3}\b|\b(?:200|201|204)\s+OK\b|\bexit(?: code| status)?\s*[=:]?\s*0\b'
     r'|\bCI\s+(?:is\s+)?(?:green|passed)|https?://\S+/(?:actions/runs|commit|pull)/\S+'
@@ -67,7 +80,8 @@ ABSENT = [
     r"没找到|没搜到|没人调用|没有调用|没在跑|不在跑|没有用到|没用到",
 ]
 # Honest uncertainty always passes.
-HEDGE = (r"\b(?:not|haven't|have not|didn't|did not|couldn't|could not)\s+(?:yet\s+)?(?:verified|verify|tested|test|run|checked|check)\b"
+HEDGE = (r"\b(?:not|haven't|have not|didn't|did not|couldn't|could not)\s+(?:yet\s+)?"
+         r"(?:verified|verify|tested|test|checked|check|run (?:it|them|this|the tests?|the check))\b"
          r"|\b(?:not|haven't|didn't|did not)\s+re-?(?:run|ran|checked|verified|tested)\b"
          r"|\bunverified\b|\buntested\b|未验证|没验证|未验|没验|没测|未测试|没重新验|没复核")
 
@@ -167,15 +181,14 @@ def judge(turn, final_text=None):
             return 'done', claim, 'it is a report from memory with no proof cited (no commit, test result or status code)'
     elif claim:
         last_edit = max((k for k, (_, n) in enumerate(actions) if n in EDIT_TOOLS), default=-1)
-        after = [n for k, (i, n) in enumerate(actions)
-                 if k > last_edit and i not in errors and n not in EDIT_TOOLS | READ_TOOLS | {'EditDoc'}]
+        after = [n for k, (i, n) in enumerate(actions) if k > last_edit and i not in errors and runs(n)]
         if not after:
             missing = ('nothing ran after the last edit' if last_edit >= 0
                        else 'no command ran in this turn')
             return 'done', claim, missing
 
     claim = _first(ABSENT, said)
-    lookups = sum(1 for i, _ in actions if i not in errors)
+    lookups = sum(1 for i, n in actions if i not in errors and looks(n))
     if claim and lookups < 2:
         return 'absent', claim, f'only {lookups} lookup{"" if lookups == 1 else "s"} in this turn'
     return None
