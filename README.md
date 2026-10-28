@@ -79,7 +79,7 @@ lists the latest ones. If it blocked something it shouldn't have, [open an issue
 
 ## Why I built it
 
-I run a one-person company on about 18 Claude Code sessions and 20 scheduled AI jobs ([how that works](https://github.com/Balance0014/one-person-ai-company)). An earlier version of this hook has been on my machine since May. It blocked 19 times last week.
+I run a one-person company on about 18 Claude Code sessions and 20 scheduled AI jobs ([how that works](https://github.com/Balance0014/one-person-ai-company); this tool is [chapter 5](https://github.com/Balance0014/one-person-ai-company/blob/main/playbook/05-definition-of-done.md) turned into a hook). An earlier version of this hook has been on my machine since May. It blocked 19 times last week.
 
 While writing this version I found a bug in mine: it treated tool results as new messages from me, so it only counted the lookups in the agent's very last message. Every search before that was invisible, and it blocked me for a "not found" I had already checked with several searches. This version splits turns at the messages you actually typed, and every rule has a test for the case it must catch and the case it must let through.
 

@@ -67,7 +67,7 @@ python3 claim_check.py replay
 
 ## 为什么做这个
 
-我一个人开公司,手下大约 18 个 Claude Code 会话和 20 个定时 AI 任务([具体怎么管](https://github.com/Balance0014/one-person-ai-company))。从 5 月起,我电脑上就装着这个钩子的早期版本,上周拦了 19 次。
+我一个人开公司,手下大约 18 个 Claude Code 会话和 20 个定时 AI 任务([具体怎么管](https://github.com/Balance0014/one-person-ai-company);这个工具就是[第 5 章](https://github.com/Balance0014/one-person-ai-company/blob/main/playbook/zh-CN/05-definition-of-done.md)做成的钩子)。从 5 月起,我电脑上就装着这个钩子的早期版本,上周拦了 19 次。
 
 写这一版时,我发现旧版有个 bug:它把工具返回的结果当成了我新说的话,所以只数 AI 最后一条消息里的查找,前面查过的全都看不见。我明明搜过好几遍的「没找到」,也被它拦了。新版按你真正打字的消息切分回合,每条规则都有两条测试:一条必须拦住,一条必须放行。
 
