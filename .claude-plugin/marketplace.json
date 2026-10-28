@@ -1,0 +1,19 @@
+{
+  "name": "claim-check",
+  "owner": {
+    "name": "Balance Zhao"
+  },
+  "metadata": {
+    "description": "Stops your coding agent from saying \"done\" or \"not found\" until it has shown the proof.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claim-check",
+      "source": "./",
+      "description": "A Stop hook: \"fixed\" needs a command that ran after the last edit, \"not found\" needs two lookups. Blocks once, logs every block.",
+      "category": "quality",
+      "tags": ["stop-hook", "verification", "quality"]
+    }
+  ]
+}

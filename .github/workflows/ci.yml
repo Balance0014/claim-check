@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Unit tests (each rule has a case to catch and a case to let through)
+        run: python -m unittest discover tests -v
+      - name: The hook runs the way Claude Code calls it
+        run: |
+          printf '%s\n' \
+            '{"type":"user","message":{"content":"fix it"}}' \
+            '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"a.py"}}]}}' \
+            '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}' \
+            '{"type":"assistant","message":{"content":[{"type":"text","text":"Fixed."}]}}' > "$RUNNER_TEMP/t.jsonl"
+          out=$(echo "{\"transcript_path\":\"$RUNNER_TEMP/t.jsonl\"}" | CLAIM_CHECK_LOG="$RUNNER_TEMP/b.jsonl" python claim_check.py)
+          echo "$out"
+          echo "$out" | python -c 'import json,sys; assert json.load(sys.stdin)["decision"] == "block"'
+          echo '{"transcript_path":"'"$RUNNER_TEMP"'/t.jsonl","stop_hook_active":true}' | python claim_check.py | grep -c . | grep -qx 0
+      - name: Plugin files are valid JSON
+        run: |
+          for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json hooks/hooks.json; do
+            python -m json.tool "$f" > /dev/null && echo "ok $f"
+          done
+
+  skill-install:
+    name: Install as an agent skill, the way the README says
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: npx skills add
+        env:
+          DO_NOT_TRACK: "1"
+          DISABLE_TELEMETRY: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/demo" && cd "$RUNNER_TEMP/demo"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          npx --yes skills@1.7.2 add "$url" --list
+          npx --yes skills@1.7.2 add "$url" --agent claude-code --yes
+          find -L . -path '*claim-check/SKILL.md' | grep .

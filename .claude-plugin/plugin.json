@@ -1,0 +1,13 @@
+{
+  "name": "claim-check",
+  "description": "Stops your coding agent from saying \"done\" or \"not found\" until it has shown the proof.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Balance Zhao",
+    "url": "https://github.com/Balance0014"
+  },
+  "homepage": "https://github.com/Balance0014/claim-check",
+  "repository": "https://github.com/Balance0014/claim-check",
+  "license": "MIT",
+  "keywords": ["claude-code", "hooks", "stop-hook", "verification", "quality", "agents"]
+}

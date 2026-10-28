@@ -1,0 +1,16 @@
+{
+  "description": "claim-check: before the agent ends its turn, check that its claims come with proof. Local only, no network.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/claim_check.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
