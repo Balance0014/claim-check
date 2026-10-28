@@ -8,7 +8,7 @@
 
 Two sentences from a coding agent cost me more time than any others: "it's fixed," when nothing had run since the last edit, and "that isn't used anywhere," after a single search. Both sound finished, so you move on. You find out later.
 
-I replayed 6,673 turns from my own Claude Code sessions. 480 ended with "done," "fixed," "deployed" or "tests pass." **80 of them, about one in six, had no proof behind them**: nothing had run after the last edit, or it was a status report that cited no commit, test result or status code.
+On October 28, 2026, I replayed 6,673 turns from my own Claude Code sessions. 480 ended with "done," "fixed," "deployed" or "tests pass." **80 of them, about one in six, had no proof behind them**: nothing had run after the last edit, or it was a status report that cited no commit, test result or status code.
 
 claim-check is a Stop hook. When the agent tries to end its turn, it reads what the agent claimed and checks what the agent actually did since your last message. If the proof is missing, it sends the agent back once with the exact gap.
 
