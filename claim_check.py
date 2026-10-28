@@ -48,7 +48,9 @@ def runs(name):
 def looks(name):
     return name in LOOKUP_TOOLS or name.startswith('mcp__')
 # Updating notes or docs after a check doesn't undo the check.
-DOC_FILE = re.compile(r'\.(?:md|markdown|txt|rst|adoc)$', re.I)
+DOC_FILE = re.compile(r'\.(?:md|markdown|rst|adoc)$', re.I)
+# Shell commands that only look at things: a lookup, never proof.
+READ_ONLY_SHELL = re.compile(r'^\s*(?:cat|head|tail|less|more|grep|rg|ls|find|wc|stat|file|pwd|echo|git\s+(?:status|diff|log|show))\b[^;&|]*$')
 # A status report with no tool calls passes if it cites its proof.
 PROOF = re.compile(
     r'\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b'         # commit (letters and digits, so not a date)
@@ -59,14 +61,14 @@ PROOF = re.compile(
 
 # "I did it" claims. Phrases, not single words, so "the fixed header" or "done()" don't count.
 DONE = [
-    r"\b(?:is|are|was|were|it's|that's|now|been|i've|i have|we've|we have|all|everything(?: is)?)\s+(?:now\s+)?"
+    r"\b(?:is|are|it's|that's|now|been|i've|i have|we've|we have|all|everything(?: is)?)\s+(?:now\s+)?"
     r"(?:fixed|resolved|deployed|shipped|live|done|complete|completed|working|in place|verified)\b",
     r"\b(?:i|we)\s+(?:fixed|deployed|shipped|verified|resolved|completed)\b",
     r"\btests?\s+(?:now\s+)?(?:pass|passes|passed|passing|are green|is green)\b",
     r"\bworks now\b|\bnow works\b|\bshould (?:now )?(?:work|pass|be fixed)\b",
     r"^\s*(?:[-*]\s*)?(?:✅\s*)?(?:done|fixed|deployed|shipped|all set|all done)(?:\s*(?:[.!:—-]|$)|\s+and\b)",
     # Chinese: "已验证的格式" is an adjective, "装修好了" contains "修好了"; neither is a claim.
-    r"(?:已完成|已修复|已修好|(?<![装维])修好了|已上线|已部署|已解决|已恢复|已接通|已生效|已验证|测试通过|全部通过|搞定了)(?![的地得、]|成功的)",
+    r"(?:已经?(?:完成|修复|修好|上线|部署|解决|恢复|接通|生效|验证)|(?<![装维])修好了|部署好了|做完了|测试(?:都|全部?)?通过|全部通过|搞定了)(?![的地得、]|成功的)",
 ]
 # "It isn't there" claims.
 ABSENT = [
@@ -79,6 +81,8 @@ ABSENT = [
     # Chinese: only first-person findings. "不存在" and "找不到" are too common in explanations to count.
     r"没找到|没搜到|没人调用|没有调用|没在跑|不在跑|没有用到|没用到",
 ]
+# A claim preceded in its clause by a negation or a condition isn't a claim ("hasn't been deployed", "once tests pass").
+NOT_A_CLAIM = re.compile(r"\b(?:not|never|nothing|no|if|once|when|until|unless|before)\b|n't\b|如果|一旦|等到|假如|要是|没有|还没|尚未|并未|未能", re.I)
 # Honest uncertainty always passes.
 HEDGE = (r"\b(?:not|haven't|have not|didn't|did not|couldn't|could not)\s+(?:yet\s+)?"
          r"(?:verified|verify|tested|test|checked|check|run (?:it|them|this|the tests?|the check))\b"
@@ -97,12 +101,13 @@ def _text(entry):
 
 def is_human(entry):
     """A message you typed: a user entry with text, not a tool result and not an injected note."""
-    if entry.get('type') != 'user' or entry.get('isMeta'):
+    if entry.get('type') != 'user' or entry.get('isMeta') or entry.get('isCompactSummary'):
         return False
+    text = _text(entry).lstrip()
+    if not text or text.startswith(('<task-notification>', '<system-reminder>')):
+        return False                # background-task notices and injected notes, not you
     c = (entry.get('message') or {}).get('content')
-    if isinstance(c, str):
-        return bool(c.strip())
-    return isinstance(c, list) and any(isinstance(i, dict) and i.get('type') == 'text' for i in c)
+    return isinstance(c, str) or any(isinstance(i, dict) and i.get('type') == 'text' for i in c or [])
 
 
 def load(path):
@@ -110,9 +115,11 @@ def load(path):
     with open(path, encoding='utf-8', errors='replace') as f:
         for line in f:
             try:
-                out.append(json.loads(line))
+                e = json.loads(line)
             except ValueError:
                 continue
+            if isinstance(e, dict):
+                out.append(e)
     return out
 
 
@@ -135,7 +142,8 @@ def strip_quoted(text):
     text = re.sub(r'```.*?```', ' ', text, flags=re.S)
     text = re.sub(r'`[^`\n]*`', ' ', text)
     text = re.sub(r'"[^"\n]*"|“[^”\n]*”|「[^」\n]*」|『[^』\n]*』', ' ', text)
-    return '\n'.join(l for l in text.split('\n') if not l.lstrip().startswith('>'))
+    text = '\n'.join(l for l in text.split('\n') if not l.lstrip().startswith('>'))
+    return re.sub(r'[^。！？!?.,，;；\n]*[?？]', ' ', text)      # questions are not claims
 
 
 def parse(turn):
@@ -152,6 +160,8 @@ def parse(turn):
                     path = str((i.get('input') or {}).get('file_path') or '')
                     if name in EDIT_TOOLS and DOC_FILE.search(path):
                         name = 'EditDoc'
+                    elif name == 'Bash' and READ_ONLY_SHELL.match(str((i.get('input') or {}).get('command') or '')):
+                        name = 'BashRead'
                     actions.append((i.get('id'), name))
                     final = []          # text before a tool call is narration, not the answer
                 elif i.get('type') == 'text':
@@ -176,32 +186,32 @@ def judge(turn, final_text=None):
         return None
 
     claim = _first(DONE, said)
-    if claim and not actions:
-        if not PROOF.search(said):
-            return 'done', claim, 'it is a report from memory with no proof cited (no commit, test result or status code)'
-    elif claim:
-        last_edit = max((k for k, (_, n) in enumerate(actions) if n in EDIT_TOOLS), default=-1)
-        after = [n for k, (i, n) in enumerate(actions) if k > last_edit and i not in errors and runs(n)]
-        if not after:
-            missing = ('nothing ran after the last edit' if last_edit >= 0
-                       else 'no command ran in this turn')
-            return 'done', claim, missing
+    if claim:
+        ran = [k for k, (i, n) in enumerate(actions) if i not in errors and runs(n)]
+        code_edits = [k for k, (_, n) in enumerate(actions) if n in EDIT_TOOLS]
+        if code_edits:
+            if not [k for k in ran if k > code_edits[-1]]:
+                return 'done', claim, 'nothing ran after the last edit'
+        elif not ran and not PROOF.search(said) and not any(n == 'EditDoc' for _, n in actions):
+            return 'done', claim, ('it is a report from memory with no proof cited (no commit, test result or status code)'
+                                   if not actions else 'nothing ran in this turn and no proof is cited')
 
     claim = _first(ABSENT, said)
-    lookups = sum(1 for i, n in actions if i not in errors and looks(n))
+    lookups = sum(1 for i, n in actions if i not in errors and (looks(n) or n == 'BashRead'))
     if claim and lookups < 2:
         return 'absent', claim, f'only {lookups} lookup{"" if lookups == 1 else "s"} in this turn'
     return None
 
 
 def _first(patterns, text):
-    # Sentence by sentence, skipping questions: "does it exist?" is not a claim.
-    for sentence in re.findall(r'[^。！？!?\n]+[。！？!?]?', text):
-        if sentence.rstrip().endswith(('?', '？')):
-            continue
+    """First claim in the text. "Done" claims don't count when a negation or condition comes first in the clause."""
+    check_negation = patterns is DONE
+    for sentence in re.split(r'(?<=[.!?。！？])\s+|\n', text):
         for p in patterns:
-            m = re.search(p, sentence, re.I)
-            if m:
+            for m in re.finditer(p, sentence, re.I):
+                clause = re.split(r'[,，;；:：]', sentence[:m.start()])[-1]
+                if check_negation and NOT_A_CLAIM.search(clause):
+                    continue
                 return m.group(0).strip()
     return None
 
@@ -228,9 +238,15 @@ def log_block(payload, kind, claim, missing):
         pass
 
 
+def read_stdin():
+    # Claude Code sends UTF-8; a Windows console encoding would garble Chinese claims.
+    buf = getattr(sys.stdin, 'buffer', None)
+    return buf.read().decode('utf-8', 'replace') if buf else sys.stdin.read()
+
+
 def hook():
     try:
-        payload = json.loads(sys.stdin.read() or '{}')
+        payload = json.loads(read_stdin() or '{}')
     except ValueError:
         return 0
     if payload.get('stop_hook_active') or os.environ.get('CLAIM_CHECK_OFF'):
@@ -243,7 +259,7 @@ def hook():
         return 0
     if verdict:
         log_block(payload, *verdict)
-        print(json.dumps({'decision': 'block', 'reason': message(*verdict)}, ensure_ascii=False))
+        print(json.dumps({'decision': 'block', 'reason': message(*verdict)}))   # ASCII-safe for Windows consoles
     return 0
 
 
@@ -284,6 +300,9 @@ def report():
     try:
         rows = [json.loads(l) for l in open(LOG, encoding='utf-8') if l.strip()]
     except OSError:
+        print(f'No blocks logged yet ({LOG}).')
+        return 0
+    if not rows:
         print(f'No blocks logged yet ({LOG}).')
         return 0
     by = {}

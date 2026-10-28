@@ -8,7 +8,7 @@
 
 Two sentences from a coding agent cost me more time than any others: "it's fixed," when nothing had run since the last edit, and "that isn't used anywhere," after a single search. Both sound final, so I moved on, and only found out when something broke.
 
-On October 28, 2026, I replayed 6,695 turns from my own Claude Code sessions. 483 ended with "done," "fixed," "deployed" or "tests pass," and **88 of those, almost one in five, had no proof behind them**: nothing had run after the last edit, or it was a status report that cited no commit, test result or status code. Of 27 "not found" claims, 4 came with fewer than two lookups.
+On October 28, 2026, I replayed 5,429 turns from my own Claude Code sessions. 560 ended with "done," "fixed," "deployed" or "tests pass," and **112 of those, one in five, had no proof behind them**: nothing had run after the last edit, or it was a status report that cited no commit, test result or status code. Of 26 "not found" claims, 4 came with fewer than two lookups.
 
 claim-check is a Stop hook. When the agent tries to end its turn, the hook compares what the agent claimed with what it actually ran since your last message. If the proof is missing, it sends the agent back once and says exactly what's missing.
 
@@ -71,6 +71,8 @@ Every block is written to `~/.claude/claim-check/blocks.jsonl`, and `python3 cla
 - It matches phrases, so "I believe this works" gets through.
 - A command after the edit proves that something ran. It doesn't prove the command tested the right thing.
 - It only understands claims in English and Chinese.
+- It tracks edits made with Claude Code's edit tools. A file changed by a shell command such as `sed -i` isn't seen as an edit.
+- On Windows, if `python3` isn't on your PATH, change it to `python` in `hooks/hooks.json` or your settings.
 - It enforces in Claude Code only. Elsewhere it's a skill the agent can choose to follow.
 
 ## Why I built it

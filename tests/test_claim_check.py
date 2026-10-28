@@ -83,6 +83,35 @@ class Done(unittest.TestCase):
         self.assertIsNone(C.judge(turn(tool('Edit', file_path='app.py'),
                                        say('I fixed the handler but have not verified it yet.'))))
 
+    def test_claim_then_a_question_is_still_a_claim(self):
+        self.assertEqual(C.judge(turn(tool('Edit', file_path='a.py'), say('The login bug is fixed. Want me to update the docs too?')))[0], 'done')
+        self.assertEqual(C.judge(turn(tool('Edit', file_path='a.py'), say('已修复,要不要我再更新文档?')))[0], 'done')
+
+    def test_negative_and_conditional_sentences_are_not_claims(self):
+        for text in ("This hasn't been deployed yet.", 'Nothing is deployed to prod right now.',
+                     'It was working before the upgrade.', 'Bump the version, and once the tests pass, tag the release.',
+                     '如果测试通过,就可以合并。'):
+            self.assertIsNone(C.judge(turn(say(text))), text)
+
+    def test_more_chinese_claims(self):
+        for text in ('已经修复了。', '测试都通过了。', '部署好了。', '都做完了。'):
+            self.assertIsNotNone(C._first(C.DONE, text), text)
+
+    def test_docs_only_change_needs_no_run(self):
+        self.assertIsNone(C.judge(turn(tool('Edit', file_path='README.md'), say('Done.'))))
+
+    def test_requirements_file_is_code(self):
+        v = C.judge(turn(tool('Edit', file_path='app.py'), tool('Bash', command='pytest'),
+                         tool('Edit', file_path='requirements.txt'), say('Fixed.')))
+        self.assertEqual(v[0], 'done')
+
+    def test_cat_after_edit_is_not_proof(self):
+        v = C.judge(turn(tool('Edit', file_path='a.py'), tool('Bash', command='cat a.py'), say('Fixed.')))
+        self.assertEqual(v[0], 'done')
+
+    def test_cited_proof_after_a_read_passes(self):
+        self.assertIsNone(C.judge(turn(tool('Read', file_path='a.py'), say('It is deployed, commit 3f9a2c1.'))))
+
     def test_unrelated_negatives_are_not_a_hedge(self):
         v = C.judge(turn(tool('Edit', file_path='app.py'), say("Fixed. I didn't run into any other issues.")))
         self.assertEqual(v[0], 'done')
@@ -135,6 +164,21 @@ class Turns(unittest.TestCase):
         ts = list(C.turns(entries))
         self.assertEqual(len(ts), 1)
         self.assertIsNone(C.judge(ts[0]))
+
+
+    def test_notifications_and_summaries_do_not_start_a_turn(self):
+        entries = (turn(tool('Edit', file_path='a.py'), tool('Bash', command='make test'))
+                   + [you('<task-notification>build finished</task-notification>'),
+                      {'type': 'user', 'isCompactSummary': True, 'message': {'content': 'Summary of earlier work'}},
+                      say('Fixed, tests pass.')])
+        self.assertEqual(len(list(C.turns(entries))), 1)
+
+    def test_odd_lines_do_not_crash(self):
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, 't.jsonl')
+        with open(p, 'w') as f:
+            f.write('123\n"text"\n[]\n' + json.dumps(you('hi')) + '\n')
+        self.assertEqual(len(C.load(p)), 1)
 
 
 class Hook(unittest.TestCase):
