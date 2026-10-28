@@ -4,6 +4,8 @@
 
 [中文说明](README.zh-CN.md) · MIT · Python 3.9+, no dependencies
 
+![claim-check blocking an unproven "is fixed" in Claude Code, then the agent runs the tests and answers with the result](docs/demo.svg)
+
 Two sentences from a coding agent cost me more time than any others: "it's fixed," when nothing had run since the last edit, and "that isn't used anywhere," after a single search. Both sound finished, so you move on. You find out later.
 
 I replayed 6,673 turns from my own Claude Code sessions. 480 ended with "done," "fixed," "deployed" or "tests pass." **80 of them, about one in six, had no proof behind them**: nothing had run after the last edit, or it was a status report that cited no commit, test result or status code.

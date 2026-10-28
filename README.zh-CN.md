@@ -4,6 +4,8 @@
 
 [English](README.md) · MIT · Python 3.9+,不用装任何依赖
 
+![claim-check blocking an unproven "is fixed" in Claude Code, then the agent runs the tests and answers with the result](docs/demo.svg)
+
 用 AI 写代码,最坑人的是两句话:一句是「修好了」,其实改完之后什么都没跑过;另一句是「这个没地方在用」,其实只搜了一次。两句听起来都像办完了,你就接着往下走,出了事才发现。
 
 我拿自己 Claude Code 的 6,673 个回合重放了一遍:有 480 次以「做完了 / 修好了 / 上线了 / 测试通过」收尾,**其中 80 次拿不出证据,差不多每 6 次就有 1 次**:要么改完之后什么都没跑,要么是凭记忆汇报,没给提交号、测试结果或状态码。
